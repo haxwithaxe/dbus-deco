@@ -6,10 +6,10 @@ import dbus.service
 import dbus.mainloop.glib
 from gi.repository import GObject
 
-from dbus_deco import DBusProperty, extrapolate_service_path
+from dbus_deco import DBusProperty, extrapolate_service_path, fix_class_name
 
 
-def service_factory(name, path=None, class_name=None):
+def service_factory(name, path=None, class_name=None, class_doc=None):
         service_name = name
         service_path = path or extrapolate_service_path(name)
 
@@ -18,11 +18,10 @@ def service_factory(name, path=None, class_name=None):
             name = service_name
             path = service_path
 
-            def __init__(slf, message):
+            def __init__(slf):
                 slf.logger = logging.getLogger(
                         name=slf.__class__.__name__+'.'+slf.name
                         )
-                slf._message = message
 
             def run(slf):
                 dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
@@ -38,20 +37,26 @@ def service_factory(name, path=None, class_name=None):
                 return dbus.service.method(cls.name+'.'+method_name.title(), *args, **kwargs)
 
             @classmethod
-            def attribute(cls, getter_name, *args, **kwargs):
+            def attribute(cls, getter_name, *args, doc=None, **kwargs):
                 def attribute_decorator(func):
-                    return DBusProperty(fget=func, name=getter_name, interface=cls.name+'.'+getter_name.title())
+                    return DBusProperty(fget=func, name=getter_name, interface=cls.name+'.'+getter_name.title(), doc=doc)
                 return attribute_decorator
 
         if class_name:
-            ServiceBaseClass.__name__ = class_name
-            ServiceBaseClass.__qualname__ = '.'.join(ServiceBaseClass.__qualname__.split('.')[:-2]+[class_name])
+            fix_class_name(ServiceBaseClass, class_name)
+        if class_doc:
+            ServiceBaseClass.__doc__ = class_doc
         return ServiceBaseClass
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     service = service_factory('com.example.service')
 
     class ExampleService(service):
+
+        def __init__(self, message):
+            super().__init__()
+            self._message = message
 
         @service.method('message', in_signature='', out_signature='s')
         def get_message(self):

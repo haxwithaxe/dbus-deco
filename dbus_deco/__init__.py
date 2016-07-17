@@ -195,3 +195,51 @@ class DBusServiceProperty:
     def deleter(self, fdel):
         self.di.writeable = True
         return type(self)(self.fget, self.fset, fdel, self.__doc__, self.di)
+
+
+
+class DBusServiceSignal:
+    """A @property work-alike for DBus signals.
+    This is based on `PyProperty_Type()` in `Objects/descrobject.c` as interpreted by Raymond Hettinger on
+    http://stackoverflow.com/questions/12405087/subclassing-pythons-property
+
+    Attributes:
+        name (str): The default DBus service method name (eg "get_message" of
+            "com.example.service.Message.get_message"). This is used as the
+            method name if none is specified in the getter, setter, or deleter
+            method calls.
+        interface (str): The default DBus service interface name (eg "Message"
+            of "com.example.service.Message"). This is used as the method name
+            if none is specified in the getter, setter, or deleter method calls.
+
+
+    Arguments:
+        signal (callable):
+        name (str, optional): The DBus service method name (eg "get_message" of
+            "com.example.service.Message.get_message"). Defaults to None.
+        interface (str, optional): The DBus service interface name
+            (eg "Message" of "com.example.service.Message"). Defaults to None.
+
+    """
+
+    def __init__(self, signal=None, emitter=None, name=None, doc=None, introspection=None):
+        self.name = name
+        self._signal = signal
+        self._emitter = emitter
+        self.introspection = introspection
+        if doc is None and signal is not None:
+            doc = signal.__doc__
+        self.__doc__ = doc
+
+    def __call__(self, *args, **kwargs):
+        return self._signal(*args, **kwargs)
+
+    def emit(self, *args, **kwargs):
+        self._emitter(*args, **kwargs)
+
+    def signal(self, signal):
+        self.introspection.readable = True
+        return type(self)(signal, self._emitter, self.__doc__, self.introspection)
+
+    def emitter(self, emitter):
+        return type(self)(self._signal, emitter, self.__doc__, self.introspection)

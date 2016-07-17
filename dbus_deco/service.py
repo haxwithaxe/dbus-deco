@@ -9,7 +9,7 @@ from gi.repository import GObject
 from dbus_deco import DBusServiceProperty, extrapolate_service_path, fix_class_name
 
 
-def service_factory(name, path=None, class_name=None, class_doc=None, bus_class=None):
+def factory(name, path=None, class_name=None, class_doc=None, bus_class=None):
         service_name = name
         service_path = path or extrapolate_service_path(name)
 

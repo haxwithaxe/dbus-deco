@@ -28,7 +28,7 @@ class _SignalHandler:
                 )
 
 
-def client_factory(service_name, service_path=None, class_name=None, class_doc=None, bus_class=None):
+def factory(service_name, service_path=None, class_name=None, class_doc=None, bus_class=None):
     """A factory for producing a DBus client class with helper decorators builtin.
     
     Arguments:
@@ -100,7 +100,7 @@ def client_factory(service_name, service_path=None, class_name=None, class_doc=N
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    client = client_factory('com.example.service', '/com/example/service')
+    client = factory('com.example.service', '/com/example/service')
 
     class ExampleClient(client):
 

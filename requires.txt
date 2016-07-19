@@ -1,2 +1,2 @@
-dbus
-PyGObject
+pydbus
+lxml

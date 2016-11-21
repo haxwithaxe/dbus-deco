@@ -2,7 +2,11 @@
 from lxml.objectify import E
 
 from . import DIElement
+from . import annotations
 
+
+class Events:
+    ON_PROPERTY_CHANGE = annotations.PropertyEmitsChangedSignal.name
 
 
 class Emitter(pydbus.generic.signal):

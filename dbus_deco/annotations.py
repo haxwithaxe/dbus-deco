@@ -137,3 +137,10 @@ class PropertyEmitsChangedSignal(Annotation):
 
     def __init__(self, value=None):
         super().__init__(value=value)
+
+class WellKnown:
+
+    depricated = Depricated
+    glib_c_symbol = GLibCSymbol
+    method_noreply = MethodNoReply
+    property_emits_changed_signal = PropertyEmitsChangedSignal

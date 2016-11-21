@@ -1,8 +1,22 @@
+
 from .interface import Interface
+from .args import Arg, Response
+from .signals import Events, Signal
+from .annotations import WellKnown
 
 
 class Introspector(Interface):
+    """The Grand Introspector!
 
+    Using an instance of this class a D-Bus interface introspection XML document can be created to match the code it is
+    meant to describe without remembering to fiddle with XML.
+
+    Arguments:
+        namespace (str): The namespace of the service (one step above the full path to the interface).
+        *interfaces (*Interface, optional): A list of Interface instances in the even this is a root node with more than one interface.
+        **attributes (dict, optional): Attributes for the root node element.
+
+    """
 
     def __init__(self, namespace, *interfaces, **attributes):
         super().__init__(dot_notation(namespace), *interfaces, **attributes)
@@ -34,42 +48,3 @@ class Introspector(Interface):
 
     def _set_introspection_xml(self, service):
         xml_doc = E.node(super().__xml__, name=self._namespace)
-        service.dbus = etree.tostring(xml_doc, pretty_print=True).decode()
-
-
-if __name__ == '__main__':
-    from .properties import PropertyEmitsChangedSignal
-    logging.basicConfig(level=logging.DEBUG)
-    introspector = Introspector('com.example.service')
-
-    @introspector
-    class ExampleService:
-
-        @introspector.method(response='s')
-        def HelloWorld(self):
-            return 'Hello!'
-        
-        @introspector.method(Arg('message', 's'), response='s')
-        def Echo(self, message):
-            return message
-
-        @introspector.property(type_='b', access='read')
-        def Status(self):
-            return True
-
-        @introspector.property(type_='i', signal_on=[PropertyEmitsChangedSignal.name])
-        def Count(self):
-            return 100
-
-        @Count.setter
-        def Count(self, value):
-            print(value)
-
-    example_service = ExampleService()
-    print(example_service.dbus)
-
-
-    loop = GObject.MainLoop()
-    bus = pydbus.SessionBus()
-    bus.publish('com.example.service', example_service)
-    loop.run()

@@ -12,13 +12,10 @@ class Interface(DIElement):
 
     Arguments:
         namespace (str): The D-Bus namespace path for the D-Bus interface.
-        *children (tuple): A tuple of DIElement instances.
-        **attributes (dict): dict of `interface` element attributes.
+        *children (tuple, optional): A tuple of DIElement instances.
+        **attributes (dict, optional): dict of `interface` element attributes.
 
     """
-
-    required_attributes = ('name',)
-    valid_child_types = None
 
     def __init__(self, namespace, *children, **attributes):
         super().__init__(E.interface, *children, **attributes)
@@ -69,7 +66,7 @@ class Interface(DIElement):
         return method
 
     def signal(self, *annotations, response=None):
-        """Generate a method for emiting a D-Bus signal.
+        """Decorate a method to emit a D-Bus signal.
 
         Arguments:
             *annotations (*Annotation): Annotation instances defining metadata of the signal.

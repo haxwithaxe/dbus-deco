@@ -20,6 +20,8 @@ IN = 'in'
 INVALIDATES = 'invalidates'
 CONST = 'const'
 
+ON_PROPERTY_CHANGE = 'org.freedesktop.DBus.Property.EmitsChangedSignal' 
+
 def _passthrough_decorator(func):
     def _passthrough_decorator_wrapper(*args, **kwargs):
         return func(*args, **kwargs)
@@ -94,13 +96,17 @@ class DIElement:
     @property
     def __xml__(self):
         """ Returns the DBus introspection XML for this node type. """
+        print(self.__class__.__name__)
         for key, value in self.attributes.items():
             if value in (True, False):
                 self.attributes[key] = str(value).lower()
+
+        print(self.children, self.attributes)
         return self.__element_factory(*[x.__xml__ for x in self.children], **self.attributes)
 
     def __str__(self):
         return etree.tostring(self.__xml__, prettr_print=True).decode()
+
 
 class Annotation(DIElement):
     """D-Bus introspection annotation.
@@ -120,7 +126,7 @@ class Annotation(DIElement):
             if self.default_value is None:
                 raise TypeError('There is no default value. Either pass a valid `value`, or specify a `default_value`.')
             value = self.default_value
-        super().__init__(E.annotation, name=name or self.name, value=self.validate(value) or self.default_value)
+        super().__init__(E.annotation, name=name or self.name, value=value or self.default_value)
 
     def validate(self, value):
         """Validate the value supplied by the developer.
@@ -163,6 +169,8 @@ class Depricated(Annotation):
     defaault_value = True
     valid_values = (True, False)
 
+    def __init__(self, value=None):
+        super().__init__(value=value)
 
 class GLibCSymbol(Annotation):
     """
@@ -176,6 +184,9 @@ class GLibCSymbol(Annotation):
     """
 
     name = 'org.freedesktop.DBus.GLib.CSymbol'
+
+    def __init__(self, value=None):
+        super().__init__(value=value)
 
 
 class MethodNoReply(Annotation):
@@ -192,6 +203,9 @@ class MethodNoReply(Annotation):
     name = 'org.freedesktop.DBus.Method.NoReply'
     default_value = True
     valid_values = (True, False)
+
+    def __init__(self, value=None):
+        super().__init__(value=value)
 
 
 class PropertyEmitsChangedSignal(Annotation):
@@ -223,6 +237,9 @@ class PropertyEmitsChangedSignal(Annotation):
     name = 'org.freedesktop.DBus.Property.EmitsChangedSignal'
     default_value = None  # there is no reasonable default
     valid_values = (True, INVALIDATES, CONST, False)
+
+    def __init__(self, value=None):
+        super().__init__(value=value)
 
 
 class Arg(DIElement):
@@ -272,11 +289,23 @@ class Method(DIElement):
         self._namespace = namespace
 
 
+class Emitter(pydbus.generic.signal):
+    """Preloaded pydbus.generic.signal with the namespace and method to call. """
+
+    def __init__(self, namespace, func):
+        super().__init__()
+        self._namespace = namespace
+        self._func = func
+
+    def emit(self, obj, *args):
+        super().emit(obj, self._namespace, {self._func.__name__: self._func}, *args)
+
+
 class Signal(DIElement):
     """Signal element.
 
     Arguments:
-        namespace (str): The D-Bus namespace path for the signal.
+        namespace (str): The D-Bus namespace path for the D-Bus interface.
         *children (tuple): A tuple of DIElement instances.
         **attributes (dict): dict of `method` element attributes.
 
@@ -285,23 +314,33 @@ class Signal(DIElement):
     def __init__(self, namespace, *children, **attributes):
         super().__init__(E.signal, *children, **attributes)
         self._namespace = namespace
+        self._signal = pydbus.generic.signal()
 
+    def __call__(self, func):
+        """ Decorator. """
+        self._handler = func
+        self.emit.__doc__ = func.__doc__
+        self.attributes['name'] = self.get_name(func)
+        return Emitter(self._namespace, func)
+    
 
 class Property(DIElement):
     """Property element.
 
     Arguments:
-        namespace (str): The D-Bus namespace path for the property.
+        namespace (str): The D-Bus path for the property.
         type_ (str): D-Bus argument |type_signature|.
         *children (tuple): A tuple of DIElement instances.
-        access (str): Access type of the property (READ, WRITE, READWRITE).
+        access (str): Access type of the property (READ, WRITE, READWRITE). Defaults
+            to READWRITE to mimic Python's :class:property object.
+        signal_on (list, optional): List of events for the property to signal on. Defaults to an empty list.
         **attributes (dict): dict of `method` element attributes.
 
     """
 
-    def __init__(self, namespace, type_, *children, access=READWRITE, **attributes):
+    def __init__(self, namespace, type_, *children, access=READWRITE, signal_on=[], **attributes):
         for child in children:
-            if not isinstance(child, (Property, Annotation)):
+            if not isinstance(child, Annotation):
                 raise TypeError('%s is not a valid child of a Property.' % type(child) )
         super().__init__(
             E.property,
@@ -311,20 +350,60 @@ class Property(DIElement):
             **attributes
             )
         self._namespace = namespace
+        self.signal_on = signal_on
+        self._emitter = None
+        if self.signal_on:
+            self._emitter = Emitter(self._namespace, lambda *_: None)
+        for event in self.signal_on:
+            if event == ON_PROPERTY_CHANGE:
+                self.append(PropertyEmitsChangedSignal(value=True))
         self.needs_setter = access in (READWRITE, WRITE)
-        self.only_setter = access == WRITE
+        self.write_only = access == WRITE
+        self.read_only = access == READ
+        self._property = None
 
     def __call__(self, func):
+        """Decorate the method.
+
+        The method being decorated is used as the getter if the Property is readable,
+        or if it is write only the method being decorated will be the setter and the
+        getter just returns None.
+
+        If the Property instance's access is READWRITE, then a dummy method is set as
+        the setter that will throw a NotImplementedError if it is not overwritten.
+
+        """
         super().__call__(func)
         doc = func.__doc__
-        if self.only_setter:
-            return property(fget=lambda *_, **__: None, fset=func, doc=doc)
-        if self.needs_setter:
+        if self.write_only:
+            # Just use the function we have as the setter.
+            self._property = property(fget=lambda *_, **__: None, fset=func, doc=doc)
+        elif self.needs_setter:
             def fake_setter(*_, **__):
                 raise NotImplementedError('this property requires a setter according to the introspection signature')
-            return property(fget=func, fset=fake_setter)
+            self._property = property(fget=func, fset=fake_setter)
         else:
-            return property(fget=func)
+            self.property = property(fget=func)
+        return self
+
+    @property
+    def emitter(self):
+        return self._emitter
+
+    @emitter.setter
+    def emitter(self, func):
+        if self._emitter:
+            self._emitter.func = func
+
+    def getter(self, func):
+        if self.write_only:
+            raise AttributeError('This property is *read only*. It cannot have a setter.')
+        self._property = self._property.getter(func)
+
+    def setter(self, func):
+        if self.read_only:
+            raise AttributeError('This property is *read only*. It cannot have a setter.')
+        self._property = self._property.setter(func)
 
 
 class Interface(DIElement):
@@ -354,18 +433,51 @@ class Interface(DIElement):
         self.attributes['name'] = self._namespace
         return cls
 
-    def property(self, *annotations, type_=None, access=READWRITE):
-        prop = Property(self._namespace, type_, *annotations, access=access)
+    def property(self, *annotations, type_=None, access=READWRITE, signal_on=[]):
+        """Decorate a method for use as D-Bus property.
+        
+        Arguments:
+            annotations (*Annotation): One or more Annotation instances.
+            type_ (str): D-Bus property |type_signature|.
+            access (str, optional): Access type of the property (READ, WRITE,
+                READWRITE). Defaults to READWRITE to mimic Python's
+                :class:property object.
+            
+        Returns:
+            Property: A Property decorator instance.
+
+        """
+        prop = Property(self._namespace, type_, *annotations, access=access, signal_on=signal_on)
         self.append(prop)
         return prop
 
-    def method(self, *args, response=None):
-        children = _pack_response(args, response)
+    def method(self, *children, response=None):
+        """Decorate a method for use as a D-Bus method.
+
+        Arguments:
+            *children (*DIElement): Child elements such as instances of Arg or Annotation.
+            response (str): D-Bus argument |type_signature|.
+        
+        Returns:
+            callable: A decorator that returns the unmodified method.
+
+        """
+        children = _pack_response(children, response)
         method = Method(self._namespace, *children)
         self.append(method)
         return method
 
-    def signal(self, *args, response=None):
+    def signal(self, *annotations, response=None):
+        """Generate a method for emiting a D-Bus signal.
+
+        Arguments:
+            *annotations (*Annotation): Annotation instances defining metadata of the signal.
+            response (str): D-Bus argument |type_signature|.
+        
+        Returns:
+            callable: A method that can be called to emit a signal.
+
+        """
         args = _pack_response(args, Response(response))
         signal = Signal(self._namespace, *args)
         self.append(signal)
@@ -428,7 +540,7 @@ if __name__ == '__main__':
         def Status(self):
             return True
 
-        @introspector.property(type_='i', access='readwrite')
+        @introspector.property(type_='i', signal_on=[ON_PROPERTY_CHANGE], access='readwrite')
         def Count(self):
             return 100
 

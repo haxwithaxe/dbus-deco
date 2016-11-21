@@ -12,7 +12,7 @@ class ExampleService:
     def HelloWorld(self):
         return 'Hello!'
     
-    @introspector.method(Arg('message', 's'), response='s')
+    @introspector.method(intsp.Arg('message', 's'), response='s')
     def Echo(self, message):
         return message
 
@@ -26,11 +26,16 @@ class ExampleService:
 
     @Count.setter
     def Count(self, value):
+        self.Count.emit(value)
         print(value)
+
+    PropertiesChanged = introspector.properties_changed()
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+
+    from gi.repository import GObject
+    import pydbus
 
     example_service = ExampleService()
     print('Generated D-Bus Introspection XML', example_service.dbus)

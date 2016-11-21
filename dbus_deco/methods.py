@@ -1,13 +1,5 @@
 
-import logging
-
-import pydbus
-from gi.repository import GObject
-from lxml import etree
-from lxml.objectify import E
-
-
-
+from . import DIElement, E
 
 class Method(DIElement):
     """Method element.

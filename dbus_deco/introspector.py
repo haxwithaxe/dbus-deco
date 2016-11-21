@@ -1,4 +1,5 @@
 
+from . import etree, E, _dot_notation, READ, READWRITE, WRITE
 from .interface import Interface
 from .args import Arg, Response
 from .signals import Events, Signal
@@ -19,7 +20,7 @@ class Introspector(Interface):
     """
 
     def __init__(self, namespace, *interfaces, **attributes):
-        super().__init__(dot_notation(namespace), *interfaces, **attributes)
+        super().__init__(_dot_notation(namespace), *interfaces, **attributes)
 
     def __call__(self, cls):
         """ Class decorator. 
@@ -48,3 +49,4 @@ class Introspector(Interface):
 
     def _set_introspection_xml(self, service):
         xml_doc = E.node(super().__xml__, name=self._namespace)
+        setattr(service, 'dbus', etree.tostring(xml_doc, pretty_print=True).decode())

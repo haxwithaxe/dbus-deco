@@ -1,7 +1,5 @@
 
-from lxml.objectify import E
-
-from . import DIElement
+from . import DIElement, E, IN, OUT
 
 
 class Arg(DIElement):

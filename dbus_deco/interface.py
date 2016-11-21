@@ -1,10 +1,15 @@
 
-from . import DIElement, _pack_response, READ, READWRITE, WRITE
+from . import DIElement, E, READ, READWRITE, WRITE, _join_path
 from .args import Response
 from .properties import Property
 from .methods import Method
-from .signals import Signal
+from .signals import Signal, BuiltInEmitter
 
+
+def _pack_response(args, response):
+    if response:
+        args = list(args) + [Response(response)]
+    return args
 
 
 class Interface(DIElement):
@@ -27,7 +32,7 @@ class Interface(DIElement):
         Set the 'name' attribute of the element `cls`.
         
         """
-        self._namespace = join_path(self._namespace, cls.__name__)
+        self._namespace = _join_path(self._namespace, cls.__name__)
         self.attributes['name'] = self._namespace
         return cls
 
@@ -80,3 +85,13 @@ class Interface(DIElement):
         signal = Signal(self._namespace, *args)
         self.append(signal)
         return signal
+
+    def properties_changed(self):
+        """Generate method that emits a D-Bus signal with the arguments it is passed.
+
+        Returns:
+            callable: A method that can be called to emit a signal.
+
+        """
+        return BuiltInEmitter(self._namespace)
+

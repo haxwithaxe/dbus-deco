@@ -18,7 +18,7 @@ IN = 'in'
 INVALIDATES = 'invalidates'
 CONST = 'const'
 
-def extrapolate_service_path(service_name):
+def _extrapolate_service_path(service_name):
     """Take a guess at the service path by replacing all '.' with '/' and prepending a '/'."""
     return '/'+service_name.replace('.', '/')
 
@@ -49,21 +49,16 @@ def _untail(key):
     return key
 
 
-def _pack_response(args, response):
-    if response:
-        args = list(args) + [Response(response)]
-    return args
-
-def dot_notation(name):
+def _dot_notation(name):
     return name.replace('/', '.')
 
 
-def slash_notation(name):
+def _slash_notation(name):
     return name.replace('.', '/')
 
 
-def join_path(*paths):
-    return '.'.join(dot_notation(path) for path in paths)
+def _join_path(*paths):
+    return '.'.join(_dot_notation(path) for path in paths)
 
 
 class DIElement:
@@ -106,12 +101,10 @@ class DIElement:
     @property
     def __xml__(self):
         """ Returns the DBus introspection XML for this node type. """
-        print(self.__class__.__name__)
         for key, value in self.attributes.items():
             if value in (True, False):
                 self.attributes[key] = str(value).lower()
 
-        print(self.children, self.attributes)
         return self.__element_factory(*[x.__xml__ for x in self.children], **self.attributes)
 
     def __str__(self):

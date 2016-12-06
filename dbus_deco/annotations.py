@@ -92,8 +92,9 @@ class MethodNoReply(Annotation):
     Arguments:
         value (bool, optional): !!!. Defaults to True.
 
-    From the D-Bus Introspection specification:
-        org.freedesktop.DBus.Method.NoReply     true,false  If set, don't expect a reply to the method call; defaults to false.
+    Note:
+        From the D-Bus Introspection specification:
+            org.freedesktop.DBus.Method.NoReply     true,false  If set, don't expect a reply to the method call; defaults to false.
 
     """
 

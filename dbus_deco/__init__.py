@@ -6,7 +6,7 @@ __license__ = 'GPLv3'
 
 import pydbus
 from gi.repository import GObject
-from lxml import etree
+from lxml.etree import tostring
 from lxml.objectify import E
 
 
@@ -84,9 +84,11 @@ class DIElement:
         return _passthrough_decorator(func)
 
     def get_name(self, func):
+        """Get the name of a function."""
         return func.__name__
 
     def append(self, child):
+        """Add a child element to this element."""
         self.children.append(child)
 
     def __getitem__(self, attribute):
@@ -96,11 +98,12 @@ class DIElement:
         self.attributes[attribute] = value
 
     def get(self, attribute, default=None):
+        """Get the value of an attribute of this element."""
         return self.attributes.get(attribute, default)
 
     @property
     def __xml__(self):
-        """ Returns the DBus introspection XML for this node type. """
+        """Returns the DBus introspection XML for this node type."""
         for key, value in self.attributes.items():
             if value in (True, False):
                 self.attributes[key] = str(value).lower()
@@ -109,19 +112,26 @@ class DIElement:
         return self.__element_factory(*children, **self.attributes)
 
     def __str__(self):
-        return etree.tostring(self.__xml__, pretty_print=True).decode()
+        return tostring(self.__xml__, pretty_print=True).decode()
 
 
 class DIElementGroup:
+    """A group of DIElement instances.
+    
+    The purpose of this is to allow one logical object to produce multiple peer elements.
+
+    These will get rendered together.
+
+    """
 
     def __init__(self, *elements):
         self._elements = list(elements)
 
     def update(self, *elements):
+        """Add one or more elements to the group."""
         self._elements.extend(elements)
 
     def __iter__(self):
-        print(self._elements)
         return iter(x.__xml__ for x in self._elements)
 
     @property
@@ -132,5 +142,4 @@ class DIElementGroup:
         return xml
 
     def __str__(self):
-        return etree.tostring(E.DIElementGroup(self.__xml__)).decode()
-
+        return tostring(E.DIElementGroup(self.__xml__)).decode()

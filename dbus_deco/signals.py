@@ -3,16 +3,17 @@ from functools import partial
 
 import pydbus
 
-from . import DIElement, DIElementGroup, E, annotations
+from . import annotations, args, DIElement, E
 
 
 class _Signal:
+	"""pydbus.generic.signal/bound_signal interface work-alike."""
 
 	def __init__(self):
 		self.map = {}
 		self.__self__ = None
-		self.__qualname__ = '<some signal>' # function uses <lambda> ;)
-		self.__doc__ = 'Special signal.'
+		self.__qualname__ = '<decorated-signal>'
+		self.__doc__ = 'Decorated signal.'
 
 	@property
 	def callbacks(self):
@@ -33,11 +34,22 @@ class _Signal:
 		self.emit(*args)
 
 	def __repr__(self):
-		return '<bound signal ' + self.__qualname__ + ' of ' + repr(self.__self__) + '>'
+		return '<decorated-signal ' + self.__qualname__ + ' of ' + repr(self.__self__) + '>'
 
 
 class PropertiesChangedSignal(_Signal):
-	"""Preloaded pydbus.generic.signal with the namespace."""
+	"""Preloaded PropertiesChanged signal.
+    
+	Arguments:
+        namespace (str):
+        getter (callable):
+
+   org.freedesktop.DBus.Properties.PropertiesChanged (
+		STRING interface_name,
+		DICT<STRING,VARIANT> changed_properties,
+		ARRAY<STRING> invalidated_properties); 
+    
+    """
 
 	def __init__(self, namespace=None, getter=None):
 		super().__init__()
@@ -66,8 +78,9 @@ class EmitSignal(Exception):
 
 
 class Events:
+    
 	ON_PROPERTY_CHANGE = annotations.PropertyEmitsChangedSignal.name
-
+    
 
 class Signal(DIElement):
 	"""Signal element.
@@ -83,7 +96,7 @@ class Signal(DIElement):
 	def __init__(self, namespace, *children, response=None, **attributes):
 		super().__init__(E.signal, *children, **attributes)
 		if response:
-			self.append(Response(response))
+			self.append(args.Response(response))
 		self._namespace = namespace
 		self.on_signal_callback = None
 

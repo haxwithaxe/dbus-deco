@@ -11,9 +11,9 @@ def to_annotation(event):
     elif event in Events:
         return Events.get(event)
     elif isinstance(event, annotations.Annotation):
-        self.append(event)
+        return event
     elif isinstance(event, (list, tuple)) and len(event) == 2:
-        self.append(annotations.Annotation(name=event[0], value=event[1]))
+        return annotations.Annotation(name=event[0], value=event[1])
     else:
         raise TypeError('%s is not a valid event to signal on.' % event)
 
@@ -135,15 +135,17 @@ class _Property(DIElement):
 
 
 class Property(DIElementGroup):
-    """Property element.
+    """Property element with associated Signal elements.
 
     Arguments:
+        parent (Instance): Parent object used to attach attributes to the decorated class.
         namespace (str): The D-Bus path for the property.
         type_ (str): D-Bus argument |type_signature|.
         *children (tuple): A tuple of DIElement instances.
         access (str): Access type of the property (READ, WRITE, READWRITE). Defaults
             to READWRITE to mimic Python's :class:property object.
-        signal_on (list, optional): List of events for the property to signal on. Defaults to an empty list.
+        signal_on_change (bool, optional): If True add the annotation to the property saying it signals on changes, and
+        setup the PropertiesChanged signal on the decorated class.
         **attributes (dict): dict of `method` element attributes.
 
     """
@@ -156,13 +158,21 @@ class Property(DIElementGroup):
         self._signal_on_change = signal_on_change
         self._property = _Property(
                 self.add_signal, self._namespace, self._type,
-                *children, access=READWRITE,
+                *children, access=access,
                 signal_on_change=signal_on_change,
                 **attributes
                 )
         self.update(self._property)
 
     def add_signal(self, name=None, callback=None, signature=None):
+        """Add a signal to the decorated class.
+
+        Arguments:
+            name (str): The signal name.
+            callback (callable): The callback to use to get the return value.
+            signature (str): The |type_signature| for the return value. Defaults to the property type.
+
+        """
         signature = signature or self._type
         if not callable(callback):
             raise TypeError('callback `%s` for "%s" must be callable.' % (callback, name))

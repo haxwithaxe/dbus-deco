@@ -1,7 +1,7 @@
 
 from types import MethodType
 
-from . import DIElement, E, READ, READWRITE, WRITE, _join_path
+from . import DIElement, E, READWRITE, _join_path
 from .args import Response
 from .properties import Property
 from .methods import Method
@@ -112,7 +112,7 @@ class Interface(DIElement):
 			callable: A method that can be called to emit a signal.
 
 		"""
-		args = _pack_response(args, Response(response))
+		args = _pack_response(annotations, Response(response))
 		signal = Signal(self._namespace, *args)
 		self.append(signal)
 		return signal

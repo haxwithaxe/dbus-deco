@@ -1,5 +1,8 @@
 
-from . import etree, E, _dot_notation, READ, READWRITE, WRITE
+from . import E, tostring, _dot_notation
+
+# Convenience imports
+from . import READ, READWRITE, WRITE
 from .interface import Interface
 from .args import Arg, Response
 from .signals import Events, Signal
@@ -50,4 +53,4 @@ class Introspector(Interface):
 
 	def _set_introspection_xml(self, service):
 		xml_doc = E.node(super().__xml__, name=self._namespace)
-		setattr(service, 'dbus', etree.tostring(xml_doc, pretty_print=True).decode())
+		setattr(service, 'dbus', tostring(xml_doc, pretty_print=True).decode())

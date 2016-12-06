@@ -104,8 +104,33 @@ class DIElement:
         for key, value in self.attributes.items():
             if value in (True, False):
                 self.attributes[key] = str(value).lower()
-
-        return self.__element_factory(*[x.__xml__ for x in self.children], **self.attributes)
+        children = [x.__xml__ for x in self.children if not isinstance(x, DIElementGroup)]
+        children.extend(y for x in self.children if isinstance(x, DIElementGroup) for y in x)
+        return self.__element_factory(*children, **self.attributes)
 
     def __str__(self):
-        return etree.tostring(self.__xml__, prettr_print=True).decode()
+        return etree.tostring(self.__xml__, pretty_print=True).decode()
+
+
+class DIElementGroup:
+
+    def __init__(self, *elements):
+        self._elements = list(elements)
+
+    def update(self, *elements):
+        self._elements.extend(elements)
+
+    def __iter__(self):
+        print(self._elements)
+        return iter(x.__xml__ for x in self._elements)
+
+    @property
+    def __xml__(self):
+        xml = []
+        for element in self._elements:
+            xml.append(element.__xml__)
+        return xml
+
+    def __str__(self):
+        return etree.tostring(E.DIElementGroup(self.__xml__)).decode()
+

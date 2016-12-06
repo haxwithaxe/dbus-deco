@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 
 from dbus_deco import introspector as intsp
 
@@ -7,6 +8,8 @@ introspector = intsp.Introspector('com.example.service')
 
 @introspector
 class ExampleService:
+    
+    _count = 100
 
     @introspector.method(response='s')
     def HelloWorld(self):
@@ -20,16 +23,20 @@ class ExampleService:
     def Status(self):
         return True
 
-    @introspector.property(type_='i', signal_on=[intsp.Events.ON_PROPERTY_CHANGE])
+    @introspector.property(type_='i', signal_on_change=True)
     def Count(self):
-        return 100
+        return self._count
 
     @Count.setter
     def Count(self, value):
-        self.Count.emit(value)
-        print(value)
+        if value != self._count:
+            self._count = value
+        self.onCount()
+        self.PropertiesChanged(changed=['Count'])
 
-    PropertiesChanged = introspector.properties_changed()
+    @Count.signal('i')
+    def onCount(self):
+        return self.Count
 
 
 if __name__ == '__main__':
@@ -38,7 +45,7 @@ if __name__ == '__main__':
     import pydbus
 
     example_service = ExampleService()
-    print('Generated D-Bus Introspection XML', example_service.dbus)
+    #print('Generated D-Bus Introspection XML', example_service.dbus)
 
     loop = GObject.MainLoop()
     bus = pydbus.SessionBus()
